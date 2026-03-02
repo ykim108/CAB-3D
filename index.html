@@ -3,50 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CAB-3D | Water Gallery</title>
+    <title>CAB-3D | Final Gallery</title>
     <style>
-        /* This styles the 'frame' around your model */
-        body { 
-            margin: 0; 
-            background-color: #e0e0e0; /* Neutral grey background for the whole page */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
-            font-family: 'Helvetica', sans-serif;
-        }
-
-        /* This is the box where the model lives */
-        #canvas-container { 
-            width: 75vw;  /* Box takes up 75% of screen width */
-            height: 70vh; /* Box takes up 70% of screen height */
-            background-color: #ffffff; 
-            border: 2px solid #000000; /* Sharp black border */
-            box-shadow: 0 20px 50px rgba(0,0,0,0.1); /* Subtle shadow under the box */
-            position: relative;
-            cursor: grab;
-        }
-
-        #canvas-container:active { cursor: grabbing; }
-
-        /* Optional: Label at the bottom of the box */
-        .info-label {
-            position: absolute;
-            bottom: -30px;
-            left: 0;
-            font-size: 10px;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            color: #666;
-        }
+        body { margin: 0; background-color: #f0f0f0; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        #canvas-container { width: 85vw; height: 80vh; background-color: #fff; border: 1px solid #000; box-shadow: 0 15px 35px rgba(0,0,0,0.1); }
     </style>
 </head>
 <body>
-
-    <div id="canvas-container">
-        <div class="info-label">3D VIEW // MODEL_01</div>
-    </div>
+    <div id="canvas-container"></div>
 
     <script type="importmap">
         {
@@ -60,79 +24,73 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        import { Water } from 'three/addons/objects/Water.js';
 
         const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xffffff);
 
-        // Adjust camera to the container's size
         const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 1000);
         
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.shadowMap.enabled = true; // IMPORTANT
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         container.appendChild(renderer.domElement);
 
-        scene.add(new THREE.AmbientLight(0xffffff, 1.0));
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
-        dirLight.position.set(5, 10, 5);
-        scene.add(dirLight);
+        // Lights
+        scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+        const sun = new THREE.DirectionalLight(0xffffff, 1.8);
+        sun.position.set(10, 20, 10);
+        sun.castShadow = true;
+        sun.shadow.mapSize.set(2048, 2048); // High res shadows
+        scene.add(sun);
 
-        // WATER SETUP
-        const textureLoader = new THREE.TextureLoader();
-        const normalMap = textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/water/waternormals.jpg');
-        normalMap.wrapS = normalMap.wrapT = THREE.RepeatWrapping;
-
-        const water = new Water(new THREE.PlaneGeometry(100, 100), {
-            textureWidth: 512,
-            textureHeight: 512,
-            waterNormals: normalMap,
-            sunDirection: new THREE.Vector3().copy(dirLight.position).normalize(),
-            sunColor: 0xffffff,
-            waterColor: 0xddffff,
-            distortionScale: 3.7
+        // Reflective Water Floor
+        const floorGeo = new THREE.PlaneGeometry(200, 200);
+        const floorMat = new THREE.MeshStandardMaterial({ 
+            color: 0xe0f7fa, metalness: 0.8, roughness: 0.1, transparent: true, opacity: 0.9 
         });
-        water.rotation.x = -Math.PI / 2;
-        scene.add(water);
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        scene.add(floor);
 
-        // MODEL LOADING
+        // Controls
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.autoRotate = true; // THIS MUST BE TRUE
+        controls.autoRotateSpeed = 2.0;
+
         const loader = new GLTFLoader();
         loader.load('./3js.glb', (gltf) => {
             const model = gltf.scene;
+            model.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
+
             const box = new THREE.Box3().setFromObject(model);
             const center = box.getCenter(new THREE.Vector3());
             const size = box.getSize(new THREE.Vector3());
-            
-            model.position.sub(center); 
+            model.position.sub(center);
             model.position.y = 0; 
+
             scene.add(model);
 
             const maxDim = Math.max(size.x, size.y, size.z);
-            camera.position.set(maxDim * 1.5, maxDim * 1, maxDim * 1.5);
-            camera.lookAt(0, 0, 0);
+            camera.position.set(maxDim * 2, maxDim * 1.5, maxDim * 2);
+            camera.lookAt(0,0,0);
         });
-
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.autoRotate = true;
 
         function animate() {
             requestAnimationFrame(animate);
-            water.material.uniforms[ 'time' ].value += 1.0 / 60.0;
-            controls.update();
+            controls.update(); // Rotation happens here
             renderer.render(scene, camera);
         }
         animate();
 
-        // Very important: Update renderer on window resize
         window.addEventListener('resize', () => {
-            const width = container.clientWidth;
-            const height = container.clientHeight;
-            camera.aspect = width / height;
+            camera.aspect = container.clientWidth / container.clientHeight;
             camera.updateProjectionMatrix();
-            renderer.setSize(width, height);
+            renderer.setSize(container.clientWidth, container.clientHeight);
         });
     </script>
 </body>

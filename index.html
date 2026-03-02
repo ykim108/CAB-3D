@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CAB-3D | Glass Water</title>
+    <title>CAB-3D | Birds & Water</title>
     <style>
         body { margin: 0; background-color: #151520; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
         #canvas-container { width: 80vw; height: 75vh; background-color: #ffffff; border: 1px solid #000; position: relative; }
@@ -42,23 +42,22 @@
         dirLight.position.set(10, 20, 10);
         scene.add(dirLight);
 
-        // --- 🌊 THE NEW "TRUE GLASS" WATER ---
+        // --- 🌊 WATER SETUP ---
         const textureLoader = new THREE.TextureLoader();
         const waterNormalMap = textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/water/waternormals.jpg');
         waterNormalMap.wrapS = waterNormalMap.wrapT = THREE.RepeatWrapping;
-        // Make the waves larger across the giant plane
         waterNormalMap.repeat.set(50, 50); 
 
         const waterGeo = new THREE.PlaneGeometry(1000, 1000);
         const waterMat = new THREE.MeshPhysicalMaterial({
-            color: 0x001e3d,         // Deep Midnight Blue
-            metalness: 0.1,          // Low metalness so it isn't a solid mirror
-            roughness: 0.1,          // Smooth surface
-            transmission: 0.85,      // THIS MAKES IT TRANSPARENT (85% see-through)
+            color: 0x34a1eb,         
+            metalness: 0.15,         
+            roughness: 0.1,          
+            transmission: 0.7,       
             transparent: true,
-            opacity: 1.0,            // Opacity must be 1.0 when using transmission
+            opacity: 1.0,            
             normalMap: waterNormalMap,
-            normalScale: new THREE.Vector2(2.0, 2.0), // The height of the waves
+            normalScale: new THREE.Vector2(4.0, 4.0), 
             side: THREE.DoubleSide
         });
         
@@ -66,9 +65,33 @@
         water.rotation.x = -Math.PI / 2;
         scene.add(water);
 
+        // --- 🦅 BIRD FLOCK SETUP ---
+        const birds = new THREE.Group();
+        scene.add(birds);
+        
+        // A simple low-poly triangle to represent a bird in flight
+        const birdGeo = new THREE.ConeGeometry(0.15, 0.5, 3); 
+        birdGeo.rotateX(Math.PI / 2); // Point the nose forward
+        const birdMat = new THREE.MeshBasicMaterial({ color: 0x222222 }); // Dark gray silhouette
+
+        // Create 7 birds with random starting positions and speeds
+        for(let i = 0; i < 7; i++) {
+            const bird = new THREE.Mesh(birdGeo, birdMat);
+            
+            // Give each bird unique flight characteristics
+            bird.userData = {
+                angle: Math.random() * Math.PI * 2,
+                radius: 12 + Math.random() * 8, // Orbit distance from center (12 to 20 units)
+                speed: 0.005 + Math.random() * 0.005, // Flight speed
+                yBase: 5 + Math.random() * 8, // Cruising altitude
+                bobSpeed: 2 + Math.random() * 3 // How fast they bob up and down
+            };
+            birds.add(bird);
+        }
+
+        // --- 🏗️ MODEL LOADER ---
         const loader = new GLTFLoader();
-        // Updated to ?v=8
-        loader.load('./3js.glb?v=8', (gltf) => {
+        loader.load('./3js.glb?v=10', (gltf) => {
             const model = gltf.scene;
             
             let box = new THREE.Box3().setFromObject(model);
@@ -100,9 +123,24 @@
         function animate() {
             requestAnimationFrame(animate);
             
-            // This is how we animate the new glass water
-            waterNormalMap.offset.x -= 0.001;
-            waterNormalMap.offset.y += 0.001;
+            // Water ripples
+            waterNormalMap.offset.x -= 0.002;
+            waterNormalMap.offset.y += 0.002;
+
+            // --- 🦅 ANIMATE BIRDS ---
+            birds.children.forEach((bird) => {
+                bird.userData.angle += bird.userData.speed;
+                
+                // Circle around the center (x and z)
+                bird.position.x = Math.cos(bird.userData.angle) * bird.userData.radius;
+                bird.position.z = Math.sin(bird.userData.angle) * bird.userData.radius;
+                
+                // Bob up and down (y)
+                bird.position.y = bird.userData.yBase + Math.sin(bird.userData.angle * bird.userData.bobSpeed) * 0.5;
+                
+                // Point the bird in the direction it's flying
+                bird.rotation.y = -bird.userData.angle;
+            });
 
             controls.update();
             renderer.render(scene, camera);

@@ -3,40 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CAB-3D Portfolio</title>
+    <title>CAB-3D | Water Studio</title>
     <style>
-        /* This creates the "Box" look from Future Firm */
-        body { 
-            margin: 0; 
-            background-color: #f0f0f0; /* Light grey background */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            font-family: sans-serif;
-        }
+        body { margin: 0; background-color: #f7f7f7; display: flex; justify-content: center; align-items: center; height: 100vh; }
         #canvas-container { 
-            width: 80vw; 
-            height: 80vh; 
-            background-color: #ffffff; 
-            border: 1px solid #000; /* Sharp architectural border */
-            position: relative;
+            width: 85vw; height: 85vh; 
+            background-color: #fff; 
+            border: 1px solid #000; 
+            position: relative; 
             overflow: hidden;
-        }
-        .label {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            font-size: 12px;
-            letter-spacing: 2px;
-            text-transform: uppercase;
         }
     </style>
 </head>
 <body>
-    <div id="canvas-container">
-        <div class="label">Project: CAB-3D</div>
-    </div>
+    <div id="canvas-container"></div>
 
     <script type="importmap">
         {
@@ -50,51 +30,80 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { Water } from 'three/addons/objects/Water.js'; // The Water Addon
 
         const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xffffff);
+        scene.background = new THREE.Color(0xffffff); // White void
 
-        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+        const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 1000);
         
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
+        // Important: Water needs "toneMapping" for reflections to look natural
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
         container.appendChild(renderer.domElement);
 
-        // Soft Studio Lighting
-        scene.add(new THREE.AmbientLight(0xffffff, 1.5));
-        const light = new THREE.DirectionalLight(0xffffff, 2);
-        light.position.set(10, 10, 10);
-        scene.add(light);
+        // Lights
+        scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        dirLight.position.set(5, 10, 5);
+        scene.add(dirLight);
 
+        // 🌊 THE WATER ENGINE
+        const textureLoader = new THREE.TextureLoader();
+        // Standard Three.js ripple normal map from a stable GitHub CDN
+        const normalMap = textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/water/waternormals.jpg');
+        normalMap.wrapS = normalMap.wrapT = THREE.RepeatWrapping;
+
+        const waterGeo = new THREE.PlaneGeometry(100, 100);
+        const water = new Water(
+            waterGeo,
+            {
+                textureWidth: 512,
+                textureHeight: 512,
+                waterNormals: normalMap,
+                sunDirection: new THREE.Vector3(dirLight.position.x, dirLight.position.y, dirLight.position.z).normalize(),
+                sunColor: 0xffffff,
+                waterColor: 0xccffff, // Very pale cyan/blue
+                distortionScale: 3.7, // Ripple height
+                fog: scene.fog !== undefined
+            }
+        );
+        water.rotation.x = -Math.PI / 2;
+        water.position.y = 0; // The water is at height 0
+        scene.add(water);
+
+        // 🏗️ THE MODEL LOADER
         const loader = new GLTFLoader();
         loader.load('./3js.glb', (gltf) => {
             const model = gltf.scene;
             
-            // 1. Center the model
             const box = new THREE.Box3().setFromObject(model);
             const center = box.getCenter(new THREE.Vector3());
             const size = box.getSize(new THREE.Vector3());
-            model.position.sub(center); 
-
-            // 2. Zoom camera to fit the model perfectly
-            const maxDim = Math.max(size.x, size.y, size.z);
-            const fov = camera.fov * (Math.PI / 180);
-            let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
-            cameraZ *= 1.5; // Add some padding around the model
             
-            camera.position.set(cameraZ, cameraZ, cameraZ);
-            camera.lookAt(new THREE.Vector3(0, 0, 0));
-
+            // Center the model perfectly and make it sit on the water
+            model.position.sub(center); 
+            model.position.y = 0; 
             scene.add(model);
+
+            // Zoom camera to fit model comfortably
+            const maxDim = Math.max(size.x, size.y, size.z);
+            camera.position.set(maxDim * 1.5, maxDim * 1, maxDim * 1.5);
+            camera.lookAt(0, 0, 0);
         });
 
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
+        controls.autoRotate = true; // Still spins cinematic gallery style
+        controls.autoRotateSpeed = 1.0;
 
         function animate() {
             requestAnimationFrame(animate);
+            // 🌊 ANIMATE THE WATER RIPPLES
+            water.material.uniforms[ 'time' ].value += 1.0 / 60.0;
             controls.update();
             renderer.render(scene, camera);
         }

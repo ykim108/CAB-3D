@@ -1,20 +1,21 @@
-I've got you. That specific Future Firm blue is a very clean, desaturated "Gallery Blue."I have updated the code to set the background back to that color ($#151520$ if you want the dark version, or a soft light blue if you prefer the daytime look). I've used the Dark Gallery Blue ($#151520$) as it makes the bright water and the model pop significantly more.I also kept the water level at 0.5 so it continues to overlap your model.🛠️ The "Future Firm Blue" UpdateHTML<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CAB-3D | Future Firm Blue</title>
+    <title>CAB-3D | Future Firm Style</title>
     <style>
+        /* This is the background of the WHOLE PAGE */
         body { 
             margin: 0; 
-            /* The classic Future Firm dark blue background */
-            background-color: #151520; 
+            background-color: #151520 !important; /* Future Firm Dark Blue */
             display: flex; 
             justify-content: center; 
             align-items: center; 
             height: 100vh; 
             overflow: hidden;
         }
+        /* This is the box in the middle */
         #canvas-container { 
             width: 80vw; 
             height: 75vh; 
@@ -43,8 +44,7 @@ I've got you. That specific Future Firm blue is a very clean, desaturated "Galle
 
         const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
-        // Matching the interior of the box to the background for a seamless look
-        scene.background = new THREE.Color(0xffffff); 
+        scene.background = new THREE.Color(0xffffff); // Inside the box is white
 
         const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 2000);
         
@@ -70,14 +70,12 @@ I've got you. That specific Future Firm blue is a very clean, desaturated "Galle
             sunDirection: new THREE.Vector3().copy(dirLight.position).normalize(),
             sunColor: 0xffffff,
             waterColor: 0x82e1f1,
-            distortionScale: 15.0, 
+            distortionScale: 15.0, // BIG WAVES
             size: 5.0,
             alpha: 0.9
         });
         water.rotation.x = -Math.PI / 2;
-        
-        // Water level raised to overlap model
-        water.position.y = 0.5; 
+        water.position.y = 0.5; // RAISED WATER LEVEL
         scene.add(water);
 
         const loader = new GLTFLoader();
